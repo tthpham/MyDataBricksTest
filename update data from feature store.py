@@ -67,4 +67,61 @@ display(dt_model)
 
 # COMMAND ----------
 
+pred_df = pl_model.transform(test_df)
+
+# COMMAND ----------
+
+display(pred_df)
+
+# COMMAND ----------
+
+from pyspark.ml.evaluation import RegressionEvaluator
+
+# COMMAND ----------
+
+regeval = RegressionEvaluator(predictionCol='prediction', labelCol='price', metricName='r2')
+
+# COMMAND ----------
+
+regeval.evaluate(pred_df)
+
+# COMMAND ----------
+
+# Track run with MLFlow
+import mlflow
+import mlflow.spark
+from pyspark.ml.regression import LinearRegression
+
+# COMMAND ----------
+
+target_name = 'price'
+feature_name = 'features'
+with mlflow.start_run(run_name='my-run-2') as run:
+    # define pipeline
+    si = StringIndexer(inputCols=cat_cols, outputCols=index_cat_cols, handleInvalid='skip')
+    va = VectorAssembler(inputCols=ml_features, outputCol=feature_name)
+    lr = LinearRegression(labelCol=target_name, featuresCol=feature_name)
+    pl = Pipeline(stages=[si, va, lr])
+    pl_model = pl.fit(train_df)
+    
+    # log parameters:
+    mlflow.log_params({
+        'features': ml_features,
+        'target': 'price',
+        'pipeline': 'StringIndexer, VectorAssembler, LinearRegression'
+    })
+    
+    # log model
+    mlflow.spark.log_model(pl_model, 'model', input_example=train_df.limit(5).toPandas()) 
+    
+    # evaluate predictions
+    pred_df = pl_model.transform(test_df)
+    regeval = RegressionEvaluator(predictionCol='prediction', labelCol=target_name, metricName='rmse')
+    rmse = regeval.evaluate(pred_df)
+    
+    # log metrics
+    mlflow.log_metric('rmse', rmse)
+
+# COMMAND ----------
+
 

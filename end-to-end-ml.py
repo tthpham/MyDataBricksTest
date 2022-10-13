@@ -178,15 +178,36 @@ run.info
 
 # COMMAND ----------
 
-my_run
+# Register model
+registered_model_uri = f'runs:/{run.info.run_id}/xgb-model'
+registered_model_name = 'predict_wine_quality'
+registered_model = mlflow.register_model(model_uri=registered_model_uri, name=registered_model_name)
 
 # COMMAND ----------
 
-my_run.artifact_uri
+registered_model
 
 # COMMAND ----------
 
-best_model = mlflow.pyfunc.load_model('dbfs:/databricks/mlflow-tracking/82bdbb6baa5a435990b8dc7f80ff92f4/4ff623c2feab443e972b7d1132251ce6/artifacts')
+mlclient = mlflow.tracking.client.MlflowClient()
+
+# COMMAND ----------
+
+# Tracking registered model
+model_details = mlclient.get_model_version(name=registered_model_name, version=2)
+model_details
+
+# COMMAND ----------
+
+mlclient.update_registered_model(name=registered_model_name, description='XGB model to predict wine quality')
+
+# COMMAND ----------
+
+mlclient.transition_model_version_stage(name=model_details.name, version=2, stage='Production')
+
+# COMMAND ----------
+
+mlclient.get_model_version(name=model_details.name, version=model_details.version).current_stage
 
 # COMMAND ----------
 
